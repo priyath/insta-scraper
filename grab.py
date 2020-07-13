@@ -153,4 +153,4 @@ def grab_followers(target_account, scrape_percentage, rescrape):
     execution_time = (time.time() - start)
 
 
-grab_followers('jesssusgomez', 100, False)
+grab_followers('sondes_benmoussa', 100, False)

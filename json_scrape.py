@@ -10,9 +10,6 @@ import configparser
 import os, errno
 import csv
 
-from itertools import cycle
-from lxml.html import fromstring
-
 config_path = 'config/config.ini'
 followers_path = './core/followers/'
 
@@ -65,23 +62,6 @@ desktop_agents = [
     'Mozilla/5.0 (Windows NT 6.1; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.99 Safari/537.36',
     'Mozilla/5.0 (Windows NT 10.0; WOW64; rv:50.0) Gecko/20100101 Firefox/50.0'
 ]
-
-
-def get_proxies():
-    url = 'https://free-proxy-list.net/'
-    response = requests.get(url)
-    parser = fromstring(response.text)
-    proxies = set()
-    for i in parser.xpath('//tbody/tr')[:10]:
-        if i.xpath('.//td[7][contains(text(),"yes")]'):
-            #Grabbing IP and corresponding PORT
-            proxy = ":".join([i.xpath('.//td[1]/text()')[0], i.xpath('.//td[2]/text()')[0]])
-            proxies.add(proxy)
-    return proxies
-
-
-proxies = get_proxies()
-proxy_pool = cycle(proxies)
 
 
 def load_user_list(user_filename):
@@ -147,28 +127,19 @@ def get_profile_json(username, user_link, count):
     }
     try:
         proxy_add = PROXY_ADDRESS[count % MAX_TOR_INSTANCES]
-        proxy = next(proxy_pool)
-        print('Using proxy {}'.format(proxy))
         proxies = {
-            "http": proxy,
-            "https": proxy,
+            "http": proxy_add,
+            "https": proxy_add,
         }
 
         headers = {
             'User-Agent': random.choice(desktop_agents)
         }
-
-        r = requests.get(user_link, proxies=proxies, headers=headers, timeout=20)
-
+        r = requests.get(user_link, headers=headers, timeout=20)
         return_object['status_code'] = r.status_code
 
-        html = r.content
-        soup = BeautifulSoup(html, 'lxml')
-
-        script = soup.find('script', text=re.compile('window\._sharedData'))
-        json_text = re.search(r'^\s*window\._sharedData\s*=\s*({.*?})\s*;\s*$', script.string,
-                              flags=re.DOTALL | re.MULTILINE).group(1)
-        user_object = json.loads(json_text).get('entry_data').get('ProfilePage')[0].get('graphql').get('user')
+        json_obj = r.json()
+        user_object = json_obj.get('graphql').get('user')
 
         # extracting data from profile user object
         posts = 1 if get_nested(user_object, 'edge_owner_to_timeline_media', 'count') == 0 else get_nested(user_object,
@@ -239,7 +210,7 @@ def initate_scraping(user_list, max_workers=MAX_WORKERS, main_loop_counter=1, fa
         count = 0
         for user in user_list[index:]:
             count = count + 1
-            user_link = "http://www.instagram.com/" + user.strip() + '/'
+            user_link = "http://www.instagram.com/" + user.strip() + '/?__a=1'
             profile_json_requests.append(executor.submit(get_profile_json, user, user_link, count))
 
         failed_counter = []

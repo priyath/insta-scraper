@@ -1,0 +1,5 @@
+__pycache__/
+backup/
+core/followers/copied
+core/followers/done
+.idea
